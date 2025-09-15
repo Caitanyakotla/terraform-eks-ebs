@@ -59,4 +59,5 @@ GuardDuty/Falco for security alerts.
 
 ## Describe how you would route external traffic to the cluster.
 ExternalDNS for Route53 records.
+
 Use AWS Load Balancer Controller → ALB for HTTP/S, NLB for TCP.
