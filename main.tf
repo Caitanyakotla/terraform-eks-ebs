@@ -3,7 +3,7 @@ resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
-  tags = { Name = "${var.cluster_name}-vpc" }
+  tags                 = { Name = "${var.cluster_name}-vpc" }
 }
 
 data "aws_availability_zones" "available" {}
@@ -14,7 +14,7 @@ locals {
 
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
-  tags = { Name = "${var.cluster_name}-igw" }
+  tags   = { Name = "${var.cluster_name}-igw" }
 }
 
 resource "aws_subnet" "public" {
@@ -31,7 +31,7 @@ resource "aws_subnet" "public" {
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.this.id
-  tags = { Name = "${var.cluster_name}-public-rt" }
+  tags   = { Name = "${var.cluster_name}-public-rt" }
 }
 
 resource "aws_route" "public_inet" {
@@ -61,21 +61,21 @@ resource "aws_subnet" "private" {
 resource "aws_eip" "nat" {
   for_each = aws_subnet.private
   domain   = "vpc"
-  tags = { Name = "${var.cluster_name}-nat-${each.key}" }
+  tags     = { Name = "${var.cluster_name}-nat-${each.key}" }
 }
 
 resource "aws_nat_gateway" "this" {
   for_each      = aws_subnet.public
   allocation_id = aws_eip.nat[each.key].id
   subnet_id     = each.value.id
-  tags = { Name = "${var.cluster_name}-nat-${each.key}" }
-  depends_on = [aws_internet_gateway.this]
+  tags          = { Name = "${var.cluster_name}-nat-${each.key}" }
+  depends_on    = [aws_internet_gateway.this]
 }
 
 resource "aws_route_table" "private" {
   for_each = aws_subnet.private
   vpc_id   = aws_vpc.this.id
-  tags = { Name = "${var.cluster_name}-private-rt-${each.key}" }
+  tags     = { Name = "${var.cluster_name}-private-rt-${each.key}" }
 }
 
 resource "aws_route" "private_nat" {
@@ -97,9 +97,9 @@ resource "aws_iam_role" "eks_cluster" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
+      Effect    = "Allow",
       Principal = { Service = "eks.amazonaws.com" },
-      Action = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
@@ -114,9 +114,9 @@ resource "aws_iam_role" "eks_nodes" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
+      Effect    = "Allow",
       Principal = { Service = "ec2.amazonaws.com" },
-      Action = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
@@ -216,9 +216,9 @@ resource "aws_eks_node_group" "default" {
     min_size     = var.min_size
   }
 
-  ami_type       = "AL2_x86_64"
-  capacity_type  = "ON_DEMAND"
-  disk_size      = 50
+  ami_type             = "AL2_x86_64"
+  capacity_type        = "ON_DEMAND"
+  disk_size            = 50
   force_update_version = true
 
   labels = { role = "general" }
@@ -236,7 +236,7 @@ data "tls_certificate" "oidc" {
 }
 
 resource "aws_iam_openid_connect_provider" "eks" {
-  url = data.aws_eks_cluster.this.identity[0].oidc[0].issuer
+  url             = data.aws_eks_cluster.this.identity[0].oidc[0].issuer
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = [data.tls_certificate.oidc.certificates[0].sha1_fingerprint]
 }
@@ -272,26 +272,26 @@ resource "aws_iam_role_policy_attachment" "attach_ebs_csi_policy" {
 }
 
 # --- Install EBS CSI as EKS Addon wired to the IRSA role ---
- data "aws_eks_addon_version" "ebs" {
-   addon_name         = "aws-ebs-csi-driver"
-   kubernetes_version = aws_eks_cluster.this.version
-   most_recent        = true
- }
+data "aws_eks_addon_version" "ebs" {
+  addon_name         = "aws-ebs-csi-driver"
+  kubernetes_version = aws_eks_cluster.this.version
+  most_recent        = true
+}
 
- resource "aws_eks_addon" "ebs_csi" {
-   cluster_name                = aws_eks_cluster.this.name
-   addon_name                  = "aws-ebs-csi-driver"
-   addon_version               = data.aws_eks_addon_version.ebs.version
-   service_account_role_arn    = aws_iam_role.ebs_csi_controller.arn
-   resolve_conflicts_on_create = "OVERWRITE"
-   resolve_conflicts_on_update = "OVERWRITE"
-   depends_on = [
-     aws_iam_role_policy_attachment.attach_ebs_csi_policy,
-     aws_eks_node_group.default
-   ]
- }
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "aws-ebs-csi-driver"
+  addon_version               = data.aws_eks_addon_version.ebs.version
+  service_account_role_arn    = aws_iam_role.ebs_csi_controller.arn
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+  depends_on = [
+    aws_iam_role_policy_attachment.attach_ebs_csi_policy,
+    aws_eks_node_group.default
+  ]
+}
 
- terraform {
+terraform {
   backend "s3" {
     bucket  = "krishnasaikotla"
     key     = "terraform_state/terraform.tfstate"
